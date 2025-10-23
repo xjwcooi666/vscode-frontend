@@ -1,0 +1,147 @@
+{
+  "header": {
+    "title": "人工智能猪舍监控系统",
+    "viewingAs": "当前视图:",
+    "admin": "管理员",
+    "technician": "技术员",
+    "noTechnicians": "没有可用的技术员",
+    "language": "语言"
+  },
+  "sidebar": {
+    "dashboard": "仪表盘",
+    "userManagement": "用户管理",
+    "pigstyManagement": "猪舍管理",
+    "deviceManagement": "设备管理",
+    "dataMonitoring": "数据监测",
+    "alertRecords": "警报记录",
+    "myPigsties": "我的猪舍",
+    "copyright": "© {year} Pigsty Systems Inc."
+  },
+  "dashboard": {
+    "noActiveDevices": "此猪舍无活动设备。",
+    "noAssignedPigsties": "未给该技术员分配猪舍。",
+    "noPigstiesCreated": "尚未创建任何猪舍。"
+  },
+  "metricCard": {
+    "inactive": "未激活",
+    "normal": "正常",
+    "warning": "警告",
+    "danger": "危险"
+  },
+  "lineChartCard": {
+    "trend": "{metric}趋势"
+  },
+  "alertsView": {
+    "title": "警报历史",
+    "noAlertsDateRange": "选定日期范围内没有警报。",
+    "noAlertsRecent": "最近没有触发任何警报。"
+  },
+  "alertsTable": {
+    "timestamp": "时间戳",
+    "pigsty": "猪舍",
+    "metric": "指标",
+    "value": "数值",
+    "level": "级别",
+    "details": "详情",
+    "aiAnalysis": "AI分析"
+  },
+  "alertModal": {
+    "title": "AI分析: {metric}警报",
+    "pigsty": "猪舍",
+    "timestamp": "时间戳",
+    "metric": "指标",
+    "detectedValue": "检测值",
+    "geminiAnalysis": "Gemini分析",
+    "close": "关闭"
+  },
+  "pigstyManagement": {
+    "title": "猪舍管理",
+    "addPigsty": "添加猪舍",
+    "name": "名称",
+    "type": "类型",
+    "technician": "技术员",
+    "alertThresholds": "警报阈值",
+    "manage": "管理",
+    "unassigned": "未分配"
+  },
+  "pigstyModal": {
+    "editTitle": "编辑猪舍",
+    "addTitle": "添加新猪舍",
+    "assignedTechnician": "分配的技术员"
+  },
+  "thresholdModal": {
+    "title": "编辑 {pigstyName} 的阈值",
+    "description": "为此猪舍定义自定义警报阈值。留空则使用全局默认值（显示为占位符）。",
+    "dangerLow": "危险低温",
+    "warningLow": "警告低温",
+    "warningHigh": "警告高温",
+    "dangerHigh": "危险高温",
+    "saveChanges": "保存更改"
+  },
+  "userManagement": {
+    "title": "用户管理",
+    "addTechnician": "添加技术员",
+    "assignedPigsties": "分配的猪舍"
+  },
+  "userModal": {
+    "editTitle": "编辑用户",
+    "addTitle": "添加新用户",
+    "userName": "用户名",
+    "namePlaceholder": "例如, 张三"
+  },
+  "deviceManagement": {
+    "title": "设备管理",
+    "addDevice": "添加设备",
+    "deviceType": "设备类型",
+    "noDevices": "未给该猪舍分配设备。"
+  },
+  "addDeviceModal": {
+    "title": "添加新设备",
+    "pigsty": "猪舍"
+  },
+  "dataControls": {
+    "filterByDate": "按日期筛选:",
+    "query": "查询",
+    "reset": "重置",
+    "exportCsv": "导出为CSV"
+  },
+  "metrics": {
+    "Temperature": "温度",
+    "Humidity": "湿度",
+    "Ammonia": "氨气",
+    "Light": "光照"
+  },
+  "pigstyTypes": {
+    "Farrowing": "产房",
+    "Nursery": "保育舍",
+    "Finishing": "育肥舍"
+  },
+  "alertLevels": {
+    "Warning": "警告",
+    "Danger": "危险"
+  },
+  "prompts": {
+    "cannotDeleteUser": "无法删除用户。该用户当前被分配到一个或多个猪舍。",
+    "confirmDeletePigsty": "您确定要删除这个猪舍吗？此操作还将删除其所有关联设备且无法撤销。",
+    "fillFieldsCorrectly": "请正确填写所有字段。",
+    "confirmDeleteUserGeneral": "您确定要删除该用户吗？此操作无法撤销。",
+    "selectPigsty": "请选择一个猪舍。",
+    "deviceExists": "该猪舍已存在一个{deviceType}传感器。",
+    "noDataToExport": "选定范围内没有可导出的数据。"
+  },
+  "common": {
+    "edit": "编辑",
+    "delete": "删除",
+    "save": "保存",
+    "cancel": "取消",
+    "add": "添加",
+    "name": "名称",
+    "type": "类型",
+    "none": "无",
+    "status": "状态",
+    "active": "激活",
+    "inactive": "未激活",
+    "activate": "激活",
+    "deactivate": "停用"
+  }
+}

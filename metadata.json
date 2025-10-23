@@ -1,0 +1,5 @@
+{
+  "name": "AI Pigsty Monitoring System",
+  "description": "A smart monitoring and early warning system for pigsty environments. It provides real-time simulated sensor data, visualizes trends with charts, and uses AI to analyze alerts and recommend actions.",
+  "requestFramePermissions": []
+}
