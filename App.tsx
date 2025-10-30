@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
+
+// 导入组件
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
@@ -6,165 +8,189 @@ import { AlertsView } from './components/AlertsView';
 import { PigstyManagement } from './components/PigstyManagement';
 import { UserManagement } from './components/UserManagement';
 import { DeviceManagement } from './components/DeviceManagement';
-import { UserRole, Pigsty, MetricType, User, Device, Alert } from './types';
-import * as api from './services/apiService';
+import { LoginScreen } from './components/LoginScreen';
+
+// 导入类型
+import { UserRole, Pigsty as UIPigsty, User, Alert } from './types';
+import { Pigsty as RealPigsty, Device as RealDevice, MetricType as RealMetricType } from './services/api';
+
+// 导入 API 服务
+import * as realApi from './services/api';
+
+// 导入常量
 import { INITIAL_USERS } from './constants';
 
+// PigstyReading 类型定义
+type PigstyReading = {
+  id: number;
+  temperature?: number | null; // 改为可选
+  humidity?: number | null;
+  ammoniaLevel?: number | null;
+  pigstyId: string;
+  timestamp: string;
+};
 
 function App() {
+  // --- 状态 ---
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
   const [currentUserRole, setCurrentUserRole] = useState<UserRole>(UserRole.Admin);
   const [currentPage, setCurrentPage] = useState('dashboard');
-  
-  const [users, setUsers] = useState<User[]>([]);
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [pigsties, setPigsties] = useState<Pigsty[]>([]);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
+  const [users, setUsers] = useState<User[]>([]);
+  const [realPigsties, setRealPigsties] = useState<RealPigsty[]>([]);
+  const [realAlerts, setRealAlerts] = useState<Alert[]>([]);
+  const [realReadings, setRealReadings] = useState<PigstyReading[]>([]);
+  const [realDevices, setRealDevices] = useState<RealDevice[]>([]);
   const [viewingAsTechnician, setViewingAsTechnician] = useState<User | null>(INITIAL_USERS.find(u => u.id === 2) || null);
 
+  // --- 数据获取 ---
   const fetchData = useCallback(async () => {
+    if (!isAuthenticated) { setIsLoading(false); return; }
+    setIsLoading(true);
     try {
-      const data = await api.getInitialData();
-      setUsers(data.users);
-      setPigsties(data.pigsties);
-      setDevices(data.devices);
-      setAlerts(data.alerts);
-    } catch (error) {
-      console.error("Failed to fetch initial data:", error);
-      // Here you could set an error state and display a message to the user
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+      const [userData, pigstyData, deviceData, alertData, readingData] = await Promise.all([
+        realApi.getAllUsers(),
+        realApi.getAllPigsties(),
+        realApi.getAllDevices(),
+        realApi.getLatestWarnings(),
+        realApi.getLatestData()
+      ]);
+      setUsers(userData.map((u: any) => ({ ...u, role: u.role as UserRole })));
+      setRealPigsties(pigstyData);
+      setRealDevices(deviceData);
+      setRealAlerts(alertData);
+      setRealReadings(readingData);
+    } catch (error) { console.error("Failed fetch data:", error); handleLogout(); }
+    finally { setIsLoading(false); }
+  }, [isAuthenticated]);
 
+  // --- 登录/登出 ---
+  const handleLoginSuccess = () => { setIsAuthenticated(true); setCurrentPage('dashboard'); };
+  const handleLogout = () => {
+    realApi.logout(); setIsAuthenticated(false); setUsers([]); setRealPigsties([]);
+    setRealDevices([]); setRealAlerts([]); setRealReadings([]);
+  };
+
+  // --- Effect Hook ---
   useEffect(() => {
     fetchData();
-    // Set up polling for real-time data
-    const interval = setInterval(async () => {
+    let interval: NodeJS.Timeout | null = null;
+    if (isAuthenticated) {
+      interval = setInterval(async () => {
         try {
-            const updates = await api.getUpdates();
-            setPigsties(updates.pigsties);
-            setAlerts(updates.alerts);
-        } catch (error) {
-            console.error("Failed to fetch updates:", error);
-        }
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [fetchData]);
-
-  // User CRUD
-  const handleAddUser = async (name: string) => {
-    const newUser = await api.addUser({ name });
-    setUsers(prev => [...prev, newUser]);
-  };
-  const handleUpdateUser = async (id: number, name:string) => {
-    const updatedUser = await api.updateUser(id, { name });
-    setUsers(prev => prev.map(u => u.id === id ? updatedUser : u));
-  };
-  const handleDeleteUser = async (id: number) => {
-    if (pigsties.some(p => p.technicianId === id)) {
-      alert('无法删除用户。该用户当前被分配到一个或多个猪舍。');
-      return;
+          const [alertUpdates, readingUpdates] = await Promise.all([ realApi.getLatestWarnings(), realApi.getLatestData() ]);
+          setRealAlerts(alertUpdates); setRealReadings(readingUpdates);
+        } catch (error) { console.error("Failed fetch updates:", error); handleLogout(); }
+      }, 5000);
     }
-    await api.deleteUser(id);
-    if (viewingAsTechnician?.id === id) {
-        setViewingAsTechnician(users.find(u => u.id === 2) || null);
-    }
-    setUsers(prev => prev.filter(u => u.id !== id));
+    return () => { if (interval) clearInterval(interval); };
+  }, [fetchData, isAuthenticated]);
+
+  // --- 用户 CRUD ---
+  const handleAddUser = async (userData: { name: string, username: string, password: string }) => {/*...*/
+     try {
+        const newUser = await realApi.addUser(userData);
+        setUsers(prev => [...prev, { id: newUser.id, name: newUser.name, role: newUser.role as UserRole }]);
+    } catch (error) { console.error("Failed add user:", error); alert(`添加用户失败: ${error}`); }
+  };
+  const handleUpdateUser = async (id: number, name: string) => {/*...*/
+      console.warn("Update user not implemented yet");
+      const updatedUser = users.find(u => u.id === id);
+      if (updatedUser) { setUsers(prev => prev.map(u => u.id === id ? {...u, name: name} : u)); }
+  };
+  const handleDeleteUser = async (id: number) => {/*...*/
+      try {
+        await realApi.deleteUser(id);
+        if (viewingAsTechnician?.id === id) { setViewingAsTechnician(users.find(u => u.id === 2) || null); }
+        setUsers(prev => prev.filter(u => u.id !== id));
+    } catch (error) { console.error("Failed delete user:", error); alert(`删除用户失败: ${error}`); }
   };
 
-  // Pigsty CRUD
-  const handleAddPigsty = async (pigstyData: Omit<Pigsty, 'id' | 'readings'>) => {
-    const newPigsty = await api.addPigsty(pigstyData);
-    setPigsties(prev => [...prev, newPigsty]);
+  // --- 猪舍 CRUD ---
+  const handleAddPigsty = async (pigstyData: Omit<RealPigsty, 'id'>) => {/*...*/
+       try {
+        const newPigsty = await realApi.addPigsty(pigstyData);
+        setRealPigsties(prev => [...prev, newPigsty]);
+    } catch (error) { console.error("Failed add pigsty:", error); alert(`添加猪舍失败: ${error}`); throw error; }
   };
-  const handleUpdatePigsty = async (updatedPigsty: Pigsty) => {
-    const returnedPigsty = await api.updatePigsty(updatedPigsty);
-    setPigsties(prev => prev.map(p => p.id === updatedPigsty.id ? returnedPigsty : p));
+  const handleUpdatePigsty = async (id: number, updatedPigstyData: RealPigsty) => {/*...*/
+      try {
+        const returnedPigsty = await realApi.updatePigsty(id, updatedPigstyData);
+        setRealPigsties(prev => prev.map(p => p.id === id ? returnedPigsty : p));
+    } catch (error) { console.error("Failed update pigsty:", error); alert(`更新猪舍失败: ${error}`); throw error; }
   };
-  const handleDeletePigsty = async (id: number) => {
-    await api.deletePigsty(id);
-    setPigsties(prev => prev.filter(p => p.id !== id));
-    setDevices(prev => prev.filter(d => d.pigstyId !== id));
-  };
-  const handleUpdatePigstyThresholds = async (pigstyId: number, thresholds: Pigsty['thresholds']) => {
-      const updatedPigsty = await api.updatePigstyThresholds(pigstyId, thresholds);
-      setPigsties(prev => prev.map(p => p.id === pigstyId ? updatedPigsty : p));
-  };
-  
-  // Device CRUD
-  const handleAddDevice = async (pigstyId: number, type: MetricType) => {
-    const newDevice = await api.addDevice({ pigstyId, type });
-    setDevices(prev => [...prev, newDevice]);
-  };
-  const handleToggleDeviceStatus = async (id: string) => {
-    const updatedDevice = await api.toggleDeviceStatus(id);
-    setDevices(prev => prev.map(d => d.id === id ? updatedDevice : d));
+  const handleDeletePigsty = async (id: number) => {/*...*/
+       try {
+        await realApi.deletePigsty(id);
+        setRealPigsties(prev => prev.filter(p => p.id !== id));
+        setRealDevices(prev => prev.filter(d => d.pigstyId !== id));
+    } catch (error) { console.error("Failed delete pigsty:", error); alert(`删除猪舍失败: ${error}`); throw error; }
   };
 
+  // --- 设备 CRUD ---
+  const handleAddDevice = async (deviceData: Omit<RealDevice, 'id' | 'isActive'>) => {/*...*/
+      try {
+        const newDevice = await realApi.addDevice(deviceData);
+        setRealDevices(prev => [...prev, newDevice]);
+    } catch (error) { console.error("Failed add device:", error); alert(`添加设备失败: ${error}`); throw error; }
+  };
+  const handleToggleDeviceStatus = async (id: number) => {/*...*/
+       try {
+        const updatedDevice = await realApi.toggleDeviceStatus(id);
+        setRealDevices(prevDevices => {
+            const index = prevDevices.findIndex(device => device.id === id);
+            if (index === -1) return prevDevices;
+            const newDevices = [...prevDevices];
+            newDevices[index] = { ...updatedDevice };
+            return newDevices;
+        });
+    } catch (error) { console.error("Failed toggle device status:", error); alert(`切换设备状态失败: ${error}`); }
+  };
+   const handleDeleteDevice = async (id: number) => {/*...*/
+        try {
+        await realApi.deleteDevice(id);
+        setRealDevices(prev => prev.filter(d => d.id !== id));
+    } catch (error) { console.error("Failed delete device:", error); alert(`删除设备失败: ${error}`); throw error; }
+  };
+
+  // --- 页面渲染 ---
   const renderCurrentPage = () => {
-    if (isLoading) {
-      return <div className="flex-1 flex items-center justify-center text-slate-400">正在加载数据...</div>;
-    }
+    if (isLoading) { return <div className="flex-1 flex items-center justify-center text-slate-400">正在加载数据...</div>; }
     switch (currentPage) {
       case 'dashboard':
-        return <Dashboard pigsties={pigsties} devices={devices} currentUserRole={currentUserRole} viewingAsTechnician={viewingAsTechnician} />;
-      case 'alerts':
-        return <AlertsView alerts={alerts} pigsties={pigsties} />;
-      case 'pigsty-management':
-        return <PigstyManagement 
-                  pigsties={pigsties} 
-                  users={users}
-                  onUpdateThresholds={handleUpdatePigstyThresholds}
-                  onAddPigsty={handleAddPigsty}
-                  onUpdatePigsty={handleUpdatePigsty}
-                  onDeletePigsty={handleDeletePigsty}
+        // [!!! 最终修复 !!!] 传递正确的真实数据给 Dashboard
+        return <Dashboard
+                  realPigsties={realPigsties}
+                  realDevices={realDevices}
+                  realReadings={realReadings}
+                  currentUserRole={currentUserRole}
+                  viewingAsTechnician={viewingAsTechnician}
                />;
-      case 'user-management':
-        return <UserManagement 
-                  users={users}
-                  pigsties={pigsties}
-                  onAddUser={handleAddUser}
-                  onUpdateUser={handleUpdateUser}
-                  onDeleteUser={handleDeleteUser}
-               />;
-      case 'device-management':
-        return <DeviceManagement 
-                  devices={devices}
-                  pigsties={pigsties}
-                  onAddDevice={handleAddDevice}
-                  onToggleDeviceStatus={handleToggleDeviceStatus}
-               />;
+      case 'alerts': return <AlertsView alerts={realAlerts} pigsties={realPigsties} />;
+      case 'pigsty-management': return <PigstyManagement pigsties={realPigsties} users={users} onAddPigsty={handleAddPigsty} onUpdatePigsty={handleUpdatePigsty} onDeletePigsty={handleDeletePigsty} />;
+      case 'user-management': return <UserManagement users={users} pigsties={realPigsties} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} />;
+      case 'device-management': return <DeviceManagement devices={realDevices} pigsties={realPigsties} onAddDevice={handleAddDevice} onToggleDeviceStatus={handleToggleDeviceStatus} onDeleteDevice={handleDeleteDevice} />;
       default:
-        return <Dashboard pigsties={pigsties} devices={devices} currentUserRole={currentUserRole} viewingAsTechnician={viewingAsTechnician} />;
+        // 默认也应该显示 Dashboard
+        return <Dashboard
+                  realPigsties={realPigsties}
+                  realDevices={realDevices}
+                  realReadings={realReadings}
+                  currentUserRole={currentUserRole}
+                  viewingAsTechnician={viewingAsTechnician}
+                />;
     }
   };
 
+  // --- 主渲染 ---
+  if (!isAuthenticated) { return <LoginScreen onLoginSuccess={handleLoginSuccess} />; }
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 font-sans">
       <div className="flex">
-        <Sidebar 
-          currentPage={currentPage} 
-          setCurrentPage={setCurrentPage} 
-          alertCount={alerts.length}
-          currentUserRole={currentUserRole}
-        />
+        <Sidebar currentPage={currentPage} setCurrentPage={setCurrentPage} alertCount={realAlerts.filter(a => !a.acknowledged).length} currentUserRole={currentUserRole} />
         <div className="flex-1 flex flex-col h-screen">
-          <Header 
-            currentUserRole={currentUserRole} 
-            setCurrentUserRole={(role) => {
-              setCurrentUserRole(role);
-              setCurrentPage('dashboard');
-            }}
-            users={users}
-            viewingAsTechnician={viewingAsTechnician}
-            setViewingAsTechnician={setViewingAsTechnician}
-          />
-          <main className="flex-1 p-6 overflow-hidden flex">
-            {renderCurrentPage()}
-          </main>
+          <Header currentUserRole={currentUserRole} setCurrentUserRole={(role) => { setCurrentUserRole(role); setCurrentPage('dashboard'); }} users={users} viewingAsTechnician={viewingAsTechnician} setViewingAsTechnician={setViewingAsTechnician} onLogout={handleLogout} />
+          <main className="flex-1 p-6 overflow-hidden flex"> {renderCurrentPage()} </main>
         </div>
       </div>
     </div>

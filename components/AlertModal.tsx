@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Alert, SensorReading } from '../types';
-import { getAlertAnalysis } from '../services/geminiService';
+//import { getAlertAnalysis } from '../services/geminiService';
 import { ALERT_LEVEL_CONFIG, METRIC_CONFIG, METRIC_NAMES } from '../constants';
 
 interface AlertModalProps {
@@ -36,8 +36,8 @@ export const AlertModal: React.FC<AlertModalProps> = ({ alert, latestReading, on
       if (!latestReading) return;
       setIsLoading(true);
       try {
-        const result = await getAlertAnalysis(alert, latestReading);
-        setAnalysis(result);
+        //const result = await getAlertAnalysis(alert, latestReading);
+        //setAnalysis(result);
       } catch (error) {
         setAnalysis("未能获取分析结果。");
       } finally {

@@ -8,7 +8,7 @@ export enum UserRole {
 export interface User {
   id: number;
   name: string;
-  role: UserRole.Technician;
+  role: UserRole;
 }
 
 export enum MetricType {
@@ -56,14 +56,28 @@ export interface ThresholdConfig {
   danger_high: number;
 }
 
+//export interface Pigsty {
+  //id: number;
+  //name: string;
+  //type: string;
+  //capacity: number;
+  //technicianId: number | null;
+  //readings: SensorReading[];
+  //thresholds?: {
+    //[key in MetricType]?: Partial<ThresholdConfig>;
+  //};
+
 export interface Pigsty {
   id: number;
   name: string;
-  type: string;
+  location?: string; // 位置 (可选)
   capacity: number;
-  technicianId: number | null;
-  readings: SensorReading[];
-  thresholds?: {
-    [key in MetricType]?: Partial<ThresholdConfig>;
-  };
+  technicianId?: number | null; // 分配的技术员 ID (可选或 null)
+
+  // 阈值 (都是可选的)
+  tempThresholdHigh?: number;
+  tempThresholdLow?: number;
+  humidityThresholdHigh?: number;
+  humidityThresholdLow?: number;
+  ammoniaThresholdHigh?: number;
 }
