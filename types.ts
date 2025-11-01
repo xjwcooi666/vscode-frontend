@@ -80,4 +80,6 @@ export interface Pigsty {
   humidityThresholdHigh?: number;
   humidityThresholdLow?: number;
   ammoniaThresholdHigh?: number;
+  lightThresholdHigh?: number;
+  lightThresholdLow?: number;
 }

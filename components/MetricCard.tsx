@@ -7,18 +7,16 @@ import { METRIC_CONFIG, THRESHOLDS, METRIC_NAMES } from '../constants';
 interface MetricCardProps {
   metric: MetricType | string; // metric prop 的值是 "TEMPERATURE", "HUMIDITY", ...
   reading: any;
-  thresholds?: Partial<ThresholdConfig>;
+  thresholds?: { high?: number | null, low?: number | null }; // 接收来自 Dashboard 的猪舍特定阈值
 }
 
-// [!!! 最终修复 V5 !!!]
-// (这个逻辑现在是正确的，因为它依赖于 constants.tsx 中 *已修复* 的字符串 key)
+// 辅助函数 (保持不变)
 const getMetricDisplayData = (metricString: string, reading: any) => {
   let dataKey: string;
   let unit: string;
   let name: string;
   let value: number | null = null;
 
-  // 1. 直接用字符串确定 dataKey (后端真实字段名)
   switch (metricString) {
     case "AMMONIA":       dataKey = 'ammoniaLevel'; break;
     case "TEMPERATURE":   dataKey = 'temperature'; break;
@@ -27,20 +25,15 @@ const getMetricDisplayData = (metricString: string, reading: any) => {
     default:              dataKey = metricString.toLowerCase();
   }
 
-  // 2. 直接用字符串查找 Name 和 Unit
-  //    (现在 constants.tsx 里的 key 是字符串，所以能找到了！)
+  // [!!! 最终修复 V6 !!!] 
+  // `METRIC_NAMES` 和 `METRIC_CONFIG` 现在使用字符串 key，可以正确查找到
   name = METRIC_NAMES[metricString as MetricType] || metricString;
   unit = METRIC_CONFIG[metricString as MetricType]?.unit || '?';
 
-  // 3. 安全地获取值 (使用计算出的 dataKey)
   if (reading && reading[dataKey] !== undefined && reading[dataKey] !== null) {
       value = Number(reading[dataKey]);
-      if (isNaN(value)) {
-          console.error(`Value for ${dataKey} ("${reading[dataKey]}") is not a valid number.`);
-          value = null;
-      }
+      if (isNaN(value)) { value = null; }
   }
-
   return { unit, name, value };
 }
 
@@ -49,7 +42,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({ metric, reading, thresho
 
   const { unit, name, value } = getMetricDisplayData(String(metric), reading);
 
-  // 如果值无效，显示灰色卡片
+  // 无数据卡片 (保持不变)
   if (value === null) {
       return (
         <div className={`p-4 rounded-lg shadow-inner bg-slate-900/50`}>
@@ -67,29 +60,42 @@ export const MetricCard: React.FC<MetricCardProps> = ({ metric, reading, thresho
       );
   }
 
-  // --- 状态计算逻辑 ---
+  // [!!! 最终修复 V6 !!!] 
+  // 修复 getStatus 逻辑
   const getStatus = () => {
-    // [!!! 关键 !!!] THRESHOLDS 仍然使用 *枚举成员* 作为 key
-    // 我们需要将字符串 "TEMPERATURE" 转换回 MetricType.Temperature
-    const metricKey = (Object.keys(MetricType) as Array<keyof typeof MetricType>).find(
-        key => MetricType[key] === metric
-    );
-      
-    if (!metricKey) return { color: 'text-green-400', label: "正常" }; // 找不到阈值，默认正常
+    const metricKey = String(metric); // 确保是字符串 key, e.g., "TEMPERATURE"
+    
+    // 1. 获取全局（默认）阈值
+    //    (THRESHOLDS 现在使用字符串 key)
+    const globalThresholds = THRESHOLDS[metricKey];
 
-    const effectiveThresholds = {
-        high: thresholds?.high ?? THRESHOLDS[metricKey]?.danger_high,
-        low: thresholds?.low ?? THRESHOLDS[metricKey]?.danger_low
-    };
-    if ((effectiveThresholds.low !== undefined && value < effectiveThresholds.low) ||
-        (effectiveThresholds.high !== undefined && value > effectiveThresholds.high)) {
+    // 2. 获取猪舍特定（UI设置）阈值
+    const pigstyThresholds = thresholds; 
+
+    // 3. 检查“危险”级别 (使用全局默认值)
+    if (globalThresholds?.danger_low !== undefined && value < globalThresholds.danger_low) {
+      return { color: 'text-red-400', label: "危险" };
+    }
+    if (globalThresholds?.danger_high !== undefined && value > globalThresholds.danger_high) {
+      return { color: 'text-red-400', label: "危险" };
+    }
+
+    // 4. 检查“警告”级别 (优先使用猪舍设置，如果未设置，则使用全局警告值)
+    const warn_low = pigstyThresholds?.low ?? globalThresholds?.warn_low;
+    const warn_high = pigstyThresholds?.high ?? globalThresholds?.warn_high;
+
+    if ((warn_low !== undefined && value < warn_low) ||
+        (warn_high !== undefined && value > warn_high)) {
       return { color: 'text-yellow-400', label: "警告" };
     }
+    
+    // 5. 否则为“正常”
     return { color: 'text-green-400', label: "正常" };
   };
+  
   const status = getStatus();
 
-  // 正常卡片
+  // 正常卡片 (保持不变)
   return (
     <div className={`p-4 rounded-lg shadow-inner bg-slate-900/50`}>
       <div className="flex justify-between items-center">

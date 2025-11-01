@@ -6,7 +6,7 @@ const api = axios.create({
   timeout: 10000,
 });
 
-// 2. 请求拦截器 (保持不变)
+// 2. 请求拦截器
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -20,27 +20,29 @@ api.interceptors.request.use(
   }
 );
 
-// --- 类型定义 (确保与后端一致) ---
-// 如果你的 types.ts 里已经有了，可以从那里导入
-// 否则，我们在这里定义，方便 api.ts 使用
-
+// 添加并导出 AddUserRequest 类型
+export interface AddUserRequest {
+  name: string;
+  username: string;
+  password: string;
+}
+// --- 类型定义 ---
+// (这些最好放在 types.ts, 但放在这里也能工作)
 export enum MetricType {
     TEMPERATURE = 'TEMPERATURE',
     HUMIDITY = 'HUMIDITY',
     AMMONIA = 'AMMONIA',
     LIGHT = 'LIGHT'
 }
-
 export interface Device {
   id: number;
   pigstyId: number;
   type: MetricType;
   modelNumber?: string;
   serialNumber?: string;
-  active: boolean;
+  active: boolean; // 修正！使用 active
 }
-
-export interface Pigsty { // 这是后端传回的类型
+export interface Pigsty {
   id: number;
   name: string;
   location?: string;
@@ -51,11 +53,11 @@ export interface Pigsty { // 这是后端传回的类型
   humidityThresholdHigh?: number;
   humidityThresholdLow?: number;
   ammoniaThresholdHigh?: number;
+  lightThresholdHigh?: number;
+  lightThresholdLow?: number;
 }
 
-
-// --- 3. 登录 / 登出 API (保持不变) ---
-
+// --- 3. 登录 / 登出 API ---
 export const login = async (username: string, password: string) => {
   try {
     const response = await api.post('/api/auth/login', { username, password });
@@ -67,97 +69,75 @@ export const login = async (username: string, password: string) => {
     throw err;
   }
 };
-
 export const logout = () => {
   localStorage.removeItem('token');
 };
 
-
-// --- 4. 仪表盘 API (保持不变) ---
-
+// --- 4. 仪表盘 API ---
 export const getLatestData = async () => {
   const response = await api.get('/api/data/latest');
-  // TODO: 后端返回的环境数据类型需要定义 (EnvironmentalData)
   return response.data;
 };
-
 export const getLatestWarnings = async () => {
   const response = await api.get('/api/warnings/latest');
-  // TODO: 后端返回的预警数据类型需要定义 (WarningLog)
   return response.data;
 };
 
-// --- 5. 用户管理 (Admin) API (保持不变) ---
+// [!!! 新增 !!!] 确认警报 API
+export const acknowledgeWarning = async (id: number) => {
+  const response = await api.post(`/api/warnings/acknowledge/${id}`);
+  return response.data; 
+}
 
-export const getAllUsers = async () => {
+// --- 5. 用户管理 (Admin) API ---
+export const getAllUsers = async () => { /* ... */ 
   const response = await api.get('/api/admin/users');
-   // TODO: 后端返回的用户数据类型需要定义 (UserDTO)
   return response.data;
 };
-
-export const addUser = async (data: { name: string, username: string, password: string }) => {
+export const addUser = async (data: { name: string, username: string, password: string }) => { /* ... */ 
   const response = await api.post('/api/admin/users', data);
   return response.data;
 };
-
-export const deleteUser = async (id: number) => {
+export const deleteUser = async (id: number) => { /* ... */ 
   const response = await api.delete(`/api/admin/users/${id}`);
   return response.data;
 };
 
-
-// --- 6. 猪舍管理 (Pigsty) API (保持不变) ---
-
-export const getAllPigsties = async (): Promise<Pigsty[]> => { // 添加返回类型
+// --- 6. 猪舍管理 (Pigsty) API ---
+export const getAllPigsties = async (): Promise<Pigsty[]> => { /* ... */ 
   const response = await api.get('/api/pigsties');
   return response.data;
 };
-
-export const addPigsty = async (pigstyData: Omit<Pigsty, 'id'>): Promise<Pigsty> => { // 添加类型
+export const addPigsty = async (pigstyData: Omit<Pigsty, 'id'>): Promise<Pigsty> => { /* ... */ 
   const response = await api.post('/api/pigsties', pigstyData);
   return response.data;
 };
-
-export const updatePigsty = async (id: number, pigstyData: Pigsty): Promise<Pigsty> => { // 添加类型
+export const updatePigsty = async (id: number, pigstyData: Pigsty): Promise<Pigsty> => { /* ... */ 
   const response = await api.put(`/api/pigsties/${id}`, pigstyData);
   return response.data;
 };
-
-export const deletePigsty = async (id: number) => {
+export const deletePigsty = async (id: number) => { /* ... */ 
   const response = await api.delete(`/api/pigsties/${id}`);
   return response.data;
 };
 
-
-// --- 7. [!!! 新增 !!!] 设备管理 (Device) API ---
-
-export const getAllDevices = async (pigstyId?: number): Promise<Device[]> => {
-  // 任何登录用户都可以获取列表
+// --- 7. 设备管理 (Device) API ---
+export const getAllDevices = async (pigstyId?: number): Promise<Device[]> => { /* ... */ 
   const params = pigstyId ? { pigstyId } : {};
   const response = await api.get('/api/devices', { params });
   return response.data;
 };
-
-export const addDevice = async (deviceData: Omit<Device, 'id' | 'isActive'>): Promise<Device> => {
-  // 只有 Admin 能添加
+export const addDevice = async (deviceData: Omit<Device, 'id' | 'active'>): Promise<Device> => { /* ... */ 
   const response = await api.post('/api/devices', deviceData);
   return response.data;
 };
-
-// 后端提供了 PUT /devices/{id} 和 POST /devices/{id}/toggle
-// 我们优先使用 toggle 接口，因为它更简单
-export const toggleDeviceStatus = async (id: number): Promise<Device> => {
-  // 只有 Admin 能切换状态
+export const toggleDeviceStatus = async (id: number): Promise<Device> => { /* ... */ 
   const response = await api.post(`/api/devices/${id}/toggle`);
   return response.data;
 };
-
-export const deleteDevice = async (id: number) => {
-  // 只有 Admin 能删除
+export const deleteDevice = async (id: number) => { /* ... */ 
   const response = await api.delete(`/api/devices/${id}`);
   return response.data;
 };
 
-
-// 默认导出
 export default api;
