@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Alert } from '../types';
+import { Pigsty as RealPigsty } from '../services/api';
 import { AlertsTable } from './AlertsTable';
 import { AlertModal } from './AlertModal';
+import { METRIC_NAMES } from '../constants';
 
 type PigstyReading = {
   id: number;
@@ -16,6 +18,7 @@ type PigstyReading = {
 interface AlertsViewProps {
   alerts: Alert[];
   realReadings: PigstyReading[];
+  realPigsties: RealPigsty[];
   onAcknowledgeWarning: (id: number) => Promise<void>;
   pageInfo: { totalElements: number; totalPages: number; number: number; size: number };
   onPageChange: (page: number) => void;
@@ -31,6 +34,7 @@ interface AlertsViewProps {
 export const AlertsView: React.FC<AlertsViewProps> = ({
   alerts,
   realReadings,
+  realPigsties,
   onAcknowledgeWarning,
   pageInfo,
   onPageChange,
@@ -107,8 +111,10 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
               onChange={(e) => onFilterPigstyChange(e.target.value)}
             >
               <option value="all">全部</option>
-              {Array.from(new Set((alerts || []).map((a: any) => String(a.pigstyId)))).map((id) => (
-                <option key={id} value={id}>{id}</option>
+              {realPigsties.map((pigsty) => (
+                <option key={String(pigsty.id)} value={String(pigsty.id)}>
+                  {pigsty.name}
+                </option>
               ))}
             </select>
           </label>
@@ -121,7 +127,9 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
             >
               <option value="all">全部</option>
               {Array.from(new Set((alerts || []).map((a: any) => a.metricType || a.metric))).map((metric) => (
-                <option key={metric} value={metric || ""}>{metric || "未知"}</option>
+                <option key={metric} value={metric || ""}>
+                  {METRIC_NAMES[metric] || metric || "未知"}
+                </option>
               ))}
             </select>
           </label>

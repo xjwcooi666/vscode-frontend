@@ -1,54 +1,14 @@
 
-import React, { useState, useEffect } from 'react';
-import { Alert, SensorReading } from '../types';
-//import { getAlertAnalysis } from '../services/geminiService';
+import React from 'react';
+import { Alert } from '../types';
 import { ALERT_LEVEL_CONFIG, METRIC_CONFIG, METRIC_NAMES } from '../constants';
 
 interface AlertModalProps {
   alert: Alert;
-  latestReading?: SensorReading;
   onClose: () => void;
 }
 
-const LoadingSpinner: React.FC = () => (
-  <div className="flex justify-center items-center space-x-2 my-4">
-      <div className="w-4 h-4 rounded-full bg-sky-400 animate-bounce" style={{animationDelay: '0s'}}></div>
-      <div className="w-4 h-4 rounded-full bg-sky-400 animate-bounce" style={{animationDelay: '0.2s'}}></div>
-      <div className="w-4 h-4 rounded-full bg-sky-400 animate-bounce" style={{animationDelay: '0.4s'}}></div>
-  </div>
-);
-
-// Basic Markdown to HTML renderer
-const MarkdownRenderer: React.FC<{ text: string }> = ({ text }) => {
-    const html = text
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\n/g, '<br />');
-    return <div dangerouslySetInnerHTML={{ __html: html }} />;
-};
-
-
-export const AlertModal: React.FC<AlertModalProps> = ({ alert, latestReading, onClose }) => {
-  const [analysis, setAnalysis] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-
-  useEffect(() => {
-    const fetchAnalysis = async () => {
-      if (!latestReading) return;
-      setIsLoading(true);
-      try {
-        //const result = await getAlertAnalysis(alert, latestReading);
-        //setAnalysis(result);
-      } catch (error) {
-        setAnalysis("未能获取分析结果。");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchAnalysis();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [alert, latestReading]);
-  
+export const AlertModal: React.FC<AlertModalProps> = ({ alert, onClose }) => {
   const levelConfig = ALERT_LEVEL_CONFIG[alert.level];
   const metricConfig = METRIC_CONFIG[alert.metric];
   const metricName = METRIC_NAMES[alert.metric];
@@ -61,7 +21,7 @@ export const AlertModal: React.FC<AlertModalProps> = ({ alert, latestReading, on
              <span className={`mr-3 p-2 rounded-full ${levelConfig.color}`}>
                 {React.cloneElement(ALERT_LEVEL_CONFIG[alert.level].icon as React.ReactElement<any>, { className: "h-6 w-6"})}
              </span>
-             {`AI分析: ${metricName}警报`}
+             {`警报详情: ${metricName}`}
           </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-white">&times;</button>
         </div>
@@ -85,17 +45,6 @@ export const AlertModal: React.FC<AlertModalProps> = ({ alert, latestReading, on
                     <p className="text-2xl font-bold">{alert.value.toFixed(2)} {metricConfig.unit}</p>
                     <p className="text-xs mt-1">{alert.message}</p>
                 </div>
-            </div>
-
-            <div className="bg-slate-900/50 p-4 rounded-md">
-                <h3 className="font-semibold text-slate-300 mb-2">Gemini分析</h3>
-                {isLoading ? (
-                    <LoadingSpinner />
-                ) : (
-                    <div className="text-slate-300 text-sm leading-relaxed prose prose-invert prose-p:my-1 prose-strong:text-sky-300 prose-ol:list-decimal prose-ol:pl-5">
-                       <MarkdownRenderer text={analysis} />
-                    </div>
-                )}
             </div>
         </div>
         

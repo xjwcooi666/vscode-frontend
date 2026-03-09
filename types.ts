@@ -1,16 +1,25 @@
 
 
+/**
+ * 用户角色枚举
+ */
 export enum UserRole {
   Admin = 'admin',
   Technician = 'technician',
 }
 
+/**
+ * 用户接口
+ */
 export interface User {
   id: number;
   name: string;
   role: UserRole;
 }
 
+/**
+ * 监测指标类型枚举
+ */
 export enum MetricType {
   Temperature = 'Temperature',
   Humidity = 'Humidity',
@@ -18,6 +27,9 @@ export enum MetricType {
   Light = 'Light',
 }
 
+/**
+ * 设备接口
+ */
 export interface Device {
   id: string;
   pigstyId: number;
@@ -25,6 +37,9 @@ export interface Device {
   isActive: boolean;
 }
 
+/**
+ * 传感器读数接口
+ */
 export interface SensorReading {
   timestamp: number;
   temperature: number | null;
@@ -33,11 +48,17 @@ export interface SensorReading {
   light: number | null;
 }
 
+/**
+ * 告警级别枚举
+ */
 export enum AlertLevel {
   Warning = 'Warning',
   Danger = 'Danger',
 }
 
+/**
+ * 告警接口
+ */
 export interface Alert {
   id: string;
   timestamp: number;
@@ -49,6 +70,9 @@ export interface Alert {
   message: string;
 }
 
+/**
+ * 阈值配置接口
+ */
 export interface ThresholdConfig {
   warn_low?: number;
   warn_high: number;
@@ -56,25 +80,16 @@ export interface ThresholdConfig {
   danger_high: number;
 }
 
-//export interface Pigsty {
-  //id: number;
-  //name: string;
-  //type: string;
-  //capacity: number;
-  //technicianId: number | null;
-  //readings: SensorReading[];
-  //thresholds?: {
-    //[key in MetricType]?: Partial<ThresholdConfig>;
-  //};
-
+/**
+ * 猪舍接口
+ */
 export interface Pigsty {
   id: number;
   name: string;
-  location?: string; // 位置 (可选)
+  location?: string;
   capacity: number;
-  technicianId?: number | null; // 分配的技术员 ID (可选或 null)
+  technicianId?: number | null;
 
-  // 阈值 (都是可选的)
   tempThresholdHigh?: number;
   tempThresholdLow?: number;
   humidityThresholdHigh?: number;

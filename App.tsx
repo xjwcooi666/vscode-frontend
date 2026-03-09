@@ -1,4 +1,4 @@
-﻿import React, { useState, useCallback, useEffect } from "react";
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import React, { useState, useCallback, useEffect } from "react";
 
 import { Header } from "./components/Header.tsx";
 import { Sidebar } from "./components/Sidebar.tsx";
@@ -36,10 +36,13 @@ const mapBackendRoleToFrontendRole = (backendRole: string): UserRole => {
 };
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem("token"));
+  console.log('=== App component mounted ===');
+  const token = localStorage.getItem("token");
+  console.log('Initial token:', token);
+  const [isAuthenticated, setIsAuthenticated] = useState(!!token);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [currentPage, setCurrentPage] = useState("dashboard");
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [users, setUsers] = useState<User[]>([]);
@@ -61,36 +64,74 @@ function App() {
 
   const getUsernameFromToken = (): string | null => {
     const token = localStorage.getItem("token");
-    if (!token) return null;
+    console.log('getUsernameFromToken called, token:', token);
+    if (!token) {
+      console.log('No token found');
+      return null;
+    }
     try {
+      console.log('Decoding token...');
       const decodedToken: { sub: string } = jwtDecode(token);
+      console.log('Decoded token:', decodedToken);
       return decodedToken.sub;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to decode token:", error);
+      console.error("Error message:", error.message);
       return null;
     }
   };
 
   const fetchData = useCallback(async () => {
+    console.log('fetchData called');
+    console.log('isAuthenticated:', isAuthenticated);
+    console.log('Token:', localStorage.getItem('token'));
+    
     if (!isAuthenticated) {
+      console.log('Not authenticated, setting isLoading to false');
       setIsLoading(false);
       return;
     }
 
     const username = getUsernameFromToken();
+    console.log('Username from token:', username);
     if (!username) {
+      console.log('No username, calling handleLogout');
       handleLogout();
       return;
     }
 
+    console.log('Setting isLoading to true');
     setIsLoading(true);
     try {
+      console.log('Testing API connection...');
+      // 先测试 API 连接
+      const testResponse = await fetch('http://localhost:8080/api/auth/refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      console.log('API connection test:', testResponse.status, testResponse.statusText);
+      
+      if (testResponse.status === 401) {
+        console.log('Token expired, calling handleLogout');
+        handleLogout();
+        return;
+      }
+      
+      console.log('Fetching data...');
       const [userData, pigstyData, deviceData, readingData] = await Promise.all([
         realApi.getAllUsers(),
         realApi.getAllPigsties(),
         realApi.getAllDevices(),
         realApi.getLatestData(),
       ]);
+      console.log('Data fetched successfully');
+      console.log('User data:', userData);
+      console.log('Pigsty data:', pigstyData);
+      console.log('Device data:', deviceData);
+      console.log('Reading data:', readingData);
 
       const allUsers: CurrentUser[] = userData.map((u: any) => ({
         id: u.id,
@@ -102,6 +143,7 @@ function App() {
       setUsers(allUsers);
 
       const loggedInUser = allUsers.find((u) => u.username === username);
+      console.log('LoggedIn user:', loggedInUser);
       if (loggedInUser) {
         setCurrentUser(loggedInUser);
       } else {
@@ -112,18 +154,26 @@ function App() {
 
       setRealPigsties(pigstyData);
       setRealDevices(deviceData);
-      const alertPageData = await realApi.getLatestWarnings(0, alertPageSize, warningsFilterAcknowledged, alertFilterPigstyId, alertFilterMetric);
+      const alertPageData = await realApi.getLatestWarnings(alertsPage.number ?? 0, alertPageSize, warningsFilterAcknowledged, alertFilterPigstyId, alertFilterMetric);
       setAlertsPage(alertPageData);
       setRealAlerts(alertPageData.content ?? []);
       setRealReadings(readingData);
       setLoadError(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed fetch data:", error);
-      setLoadError("数据加载失败，请检查后端服务或网络。");
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
+      setLoadError(`数据加载失败: ${error.message || '未知错误'}`);
+      // 如果是认证错误，跳转到登录页
+      if (error.message.includes('401') || error.message.includes('unauthorized')) {
+        console.log('Authentication error, calling handleLogout');
+        handleLogout();
+      }
     } finally {
+      console.log('Setting isLoading to false');
       setIsLoading(false);
     }
-  }, [isAuthenticated, alertPageSize, warningsFilterAcknowledged]);
+  }, [isAuthenticated, alertPageSize, warningsFilterAcknowledged, alertFilterPigstyId, alertFilterMetric, alertsPage.number]);
 
   const loadAlertsPage = useCallback(
     async (
@@ -149,6 +199,10 @@ function App() {
   const handleLoginSuccess = () => {
     setIsAuthenticated(true);
     setCurrentPage("dashboard");
+    // 登录成功后立即加载数据
+    setTimeout(() => {
+      fetchData();
+    }, 100);
   };
 
   const handleLogout = () => {
@@ -163,10 +217,54 @@ function App() {
     setLoadError(null);
   };
 
+  // 检查 token 有效性
   useEffect(() => {
-    fetchData();
-    let interval: NodeJS.Timeout | null = null;
+    const checkTokenValidity = () => {
+      const token = localStorage.getItem('token');
+      console.log('Checking token validity:', token);
+      if (!token) {
+        console.log('No token found, setting isAuthenticated to false');
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        setIsLoading(false);
+      } else {
+        try {
+          const username = getUsernameFromToken();
+          if (!username) {
+            console.log('Invalid token, setting isAuthenticated to false');
+            setIsAuthenticated(false);
+            setCurrentUser(null);
+            setIsLoading(false);
+          } else {
+            console.log('Token is valid, setting isAuthenticated to true');
+            setIsAuthenticated(true);
+          }
+        } catch (error) {
+          console.error('Error checking token:', error);
+          setIsAuthenticated(false);
+          setCurrentUser(null);
+          setIsLoading(false);
+        }
+      }
+    };
+
+    checkTokenValidity();
+    
+    // 监听 localStorage 中 token 的变化
+    const handleStorageChange = () => {
+      checkTokenValidity();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  useEffect(() => {
     if (isAuthenticated) {
+      fetchData();
+      let interval: NodeJS.Timeout | null = null;
       interval = setInterval(async () => {
         try {
           const [alertUpdates, readingUpdates] = await Promise.all([
@@ -181,11 +279,11 @@ function App() {
           setLoadError("实时更新失败");
         }
       }, 5000);
+      return () => {
+        if (interval) clearInterval(interval);
+      };
     }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [fetchData, isAuthenticated, alertsPage.number, alertsPage.size, alertPageSize, warningsFilterAcknowledged]);
+  }, [isAuthenticated, alertsPage.number, alertsPage.size, alertPageSize, warningsFilterAcknowledged, alertFilterPigstyId, alertFilterMetric]);
 
   const handleAddUser = async (userData: { name: string; username: string; password: string }) => {
     try {
@@ -314,16 +412,16 @@ function App() {
   };
 
   const handleAlertsPageChange = async (page: number) => {
-    await loadAlertsPage(page, alertsPage.size ?? alertPageSize, warningsFilterAcknowledged);
+    await loadAlertsPage(page, alertsPage.size ?? alertPageSize, warningsFilterAcknowledged, alertFilterPigstyId, alertFilterMetric);
   };
 
   const handleAlertsPageSizeChange = async (size: number) => {
-    await loadAlertsPage(0, size, warningsFilterAcknowledged);
+    await loadAlertsPage(0, size, warningsFilterAcknowledged, alertFilterPigstyId, alertFilterMetric);
   };
 
   const handleWarningsTabChange = async (acknowledged: boolean) => {
     setWarningsFilterAcknowledged(acknowledged);
-    await loadAlertsPage(0, alertsPage.size ?? alertPageSize, acknowledged);
+    await loadAlertsPage(0, alertsPage.size ?? alertPageSize, acknowledged, alertFilterPigstyId, alertFilterMetric);
   };
 
   const handlePigstyFilterChange = async (pigstyId: string) => {
@@ -338,7 +436,18 @@ function App() {
 
   const renderCurrentPage = () => {
     if (isLoading || !currentUser) {
-      return <div className="flex-1 flex items-center justify-center text-slate-400">正在加载数据...</div>;
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
+          <div>正在加载数据...</div>
+          <div className="mt-4 text-sm text-red-400">{loadError}</div>
+          <div className="mt-4 text-xs text-slate-500">
+            Token: {localStorage.getItem('token') ? '存在' : '不存在'}
+          </div>
+          <div className="mt-2 text-xs text-slate-500">
+            认证状态: {isAuthenticated ? '已认证' : '未认证'}
+          </div>
+        </div>
+      );
     }
     switch (currentPage) {
       case "dashboard":
@@ -351,10 +460,14 @@ function App() {
           />
         );
       case "alerts":
+        const userFilteredPigsties = currentUser?.role === UserRole.Admin 
+          ? realPigsties 
+          : realPigsties.filter(p => p.technicianId === currentUser?.id);
         return (
           <AlertsView
             alerts={realAlerts}
             realReadings={realReadings}
+            realPigsties={userFilteredPigsties}
             onAcknowledgeWarning={handleAcknowledgeWarning}
             pageInfo={{
               totalElements: alertsPage.totalElements,
@@ -368,8 +481,8 @@ function App() {
             onFilterChange={handleWarningsTabChange}
             filterPigstyId={alertFilterPigstyId}
             filterMetric={alertFilterMetric}
-            onFilterPigstyChange={setAlertFilterPigstyId}
-            onFilterMetricChange={setAlertFilterMetric}
+            onFilterPigstyChange={handlePigstyFilterChange}
+            onFilterMetricChange={handleMetricFilterChange}
           />
         );
       case "pigsty-management":
@@ -414,25 +527,25 @@ function App() {
     }
   };
 
-  if (!isAuthenticated) {
-    return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
-  }
-
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 font-sans">
-      <div className="flex">
-        <Sidebar
-          currentPage={currentPage}
-          setCurrentPage={setCurrentPage}
-          alertCount={alertsPage.totalElements ?? realAlerts.filter((a) => !a.acknowledged).length}
-          currentUserRole={currentUser?.role || UserRole.Technician}
-        />
-        <div className="flex-1 flex flex-col h-screen">
-          <Header currentUser={currentUser} onLogout={handleLogout} />
-          {loadError && <div className="bg-red-500/20 text-red-200 text-sm px-4 py-2">{loadError}</div>}
-          <main className="flex-1 p-6 overflow-hidden flex"> {renderCurrentPage()} </main>
+      {!isAuthenticated ? (
+        <LoginScreen onLoginSuccess={handleLoginSuccess} />
+      ) : (
+        <div className="flex">
+          <Sidebar
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            alertCount={alertsPage.totalElements ?? realAlerts.filter((a) => !a.acknowledged).length}
+            currentUserRole={currentUser?.role || UserRole.Technician}
+          />
+          <div className="flex-1 flex flex-col h-screen">
+            <Header currentUser={currentUser} onLogout={handleLogout} />
+            {loadError && <div className="bg-red-500/20 text-red-200 text-sm px-4 py-2">{loadError}</div>}
+            <main className="flex-1 p-6 overflow-hidden flex"> {renderCurrentPage()} </main>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

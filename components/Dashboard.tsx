@@ -1,12 +1,8 @@
 import React from 'react';
-// [!!! 关键修复 !!!] 
-// 恢复为 './' 相对路径，并 *移除* .ts/.tsx 扩展名
+
 import { Pigsty as RealPigsty, Device as RealDevice, MetricType } from '../services/api';
 import { UserRole, User } from '../types';
 
-// [!!! 关键修复 !!!] 
-// 定义一个 CurrentUser 接口 (从 App.tsx 移过来，或者从 App.tsx 导出并导入)
-// 为简单起见，我们在这里重新定义
 interface CurrentUser extends User {
   username?: string; // 确保 username 是可选的，以匹配 User 接口
 }
@@ -22,8 +18,7 @@ type PigstyReading = {
   timestamp: string;
 };
 
-// [!!! 关键修复 !!!] 
-// 恢复为 './' 相对路径，并 *移除* .ts/.tsx 扩展名
+
 import { MetricCard } from './MetricCard';
 import { LineChartCard } from './LineChartCard';
 

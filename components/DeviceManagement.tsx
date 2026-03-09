@@ -1,20 +1,19 @@
 import React, { useState } from 'react';
-// [!!! 关键修复 !!!] 从 api.ts 或 types.ts 导入正确的类型
-// 我们假设 api.ts 导出了这些类型
+
 import { Device, Pigsty, MetricType } from '../services/api';
-// 如果你的 METRIC_NAMES 来自 constants.ts, 确保导入
+
 import { METRIC_NAMES } from '../constants';
 
 // 接口定义：组件接收的 Props
 interface DeviceManagementProps {
-  devices: Device[]; // 使用真实的 Device 类型
-  pigsties: Pigsty[]; // 使用真实的 Pigsty 类型
+  devices: Device[]; 
+  pigsties: Pigsty[];
   onAddDevice: (deviceData: Omit<Device, 'id' | 'active'>) => Promise<void>; // 修改了参数
   onToggleDeviceStatus: (id: number) => Promise<void>; // ID 改为 number
   onDeleteDevice: (id: number) => Promise<void>; // 新增删除函数
 }
 
-// 添加设备弹窗 (基本不变，但类型使用导入的)
+// 添加设备弹窗 
 const AddDeviceModal: React.FC<{
   pigsties: Pigsty[];
   devices: Device[];
