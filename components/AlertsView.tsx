@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Alert } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { Alert, AlertLevel, User } from '../types';
 import { Pigsty as RealPigsty } from '../services/api';
 import { AlertsTable } from './AlertsTable';
 import { AlertModal } from './AlertModal';
+import { DangerAlertPopup } from './DangerAlertPopup';
 import { METRIC_NAMES } from '../constants';
 
 type PigstyReading = {
@@ -19,6 +20,7 @@ interface AlertsViewProps {
   alerts: Alert[];
   realReadings: PigstyReading[];
   realPigsties: RealPigsty[];
+  users: User[];
   onAcknowledgeWarning: (id: number) => Promise<void>;
   pageInfo: { totalElements: number; totalPages: number; number: number; size: number };
   onPageChange: (page: number) => void;
@@ -35,6 +37,7 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
   alerts,
   realReadings,
   realPigsties,
+  users,
   onAcknowledgeWarning,
   pageInfo,
   onPageChange,
@@ -48,6 +51,9 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
 }) => {
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [dangerAlerts, setDangerAlerts] = useState<Alert[]>([]);
+  const [currentDangerAlert, setCurrentDangerAlert] = useState<Alert | null>(null);
+  const lastShownAlertIds = useRef<Set<string>>(new Set());
 
   const totalElements = pageInfo?.totalElements ?? alerts.length;
   const totalPages = Math.max(1, pageInfo?.totalPages ?? 1);
@@ -56,13 +62,67 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
   const canPrev = currentPage > 0;
   const canNext = currentPage + 1 < totalPages;
 
+  useEffect(() => {
+    if (!alerts || alerts.length === 0) return;
+    
+    if (acknowledgedFilter) {
+      return;
+    }
+    
+    const unacknowledgedDangerAlerts = alerts.filter(
+      (alert) => {
+        const isDanger = alert.level === AlertLevel.Danger || alert.level === 'Danger' as any;
+        const isUnacknowledged = alert.acknowledged === false;
+        const notShown = !lastShownAlertIds.current.has(alert.id);
+        return isDanger && isUnacknowledged && notShown;
+      }
+    );
+    
+    if (unacknowledgedDangerAlerts.length > 0) {
+      setDangerAlerts(unacknowledgedDangerAlerts);
+      setCurrentDangerAlert(unacknowledgedDangerAlerts[0]);
+      unacknowledgedDangerAlerts.forEach(alert => {
+        lastShownAlertIds.current.add(alert.id);
+      });
+    }
+  }, [alerts, acknowledgedFilter]);
+
   const handleAlertClick = (alert: Alert) => setSelectedAlert(alert);
   const handleCloseModal = () => setSelectedAlert(null);
+
+  const handleCloseDangerPopup = () => {
+    setCurrentDangerAlert(null);
+    setDangerAlerts((prev) => {
+      const remaining = prev.slice(1);
+      if (remaining.length > 0) {
+        setTimeout(() => {
+          setCurrentDangerAlert(remaining[0]);
+        }, 300);
+      }
+      return remaining;
+    });
+  };
 
   const handleAcknowledge = async (id: number) => {
     await onAcknowledgeWarning(id);
     setSuccessMessage("已确认处理");
     setTimeout(() => setSuccessMessage(null), 2000);
+  };
+
+  const handleAcknowledgeAll = async (alerts: Alert[]) => {
+    try {
+      await Promise.all(
+        alerts.map((alert) => onAcknowledgeWarning(Number(alert.id)))
+      );
+      setDangerAlerts([]);
+      setCurrentDangerAlert(null);
+      setSuccessMessage(`已处理 ${alerts.length} 条警报`);
+      setTimeout(() => setSuccessMessage(null), 2000);
+    } catch (error) {
+      console.error('Failed to acknowledge all alerts:', error);
+      setSuccessMessage('处理失败，请重试');
+      setTimeout(() => setSuccessMessage(null), 2000);
+    }
   };
 
   const getLatestReadingForAlert = (alert: Alert) => {
@@ -126,11 +186,15 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
               onChange={(e) => onFilterMetricChange(e.target.value)}
             >
               <option value="all">全部</option>
-              {Array.from(new Set((alerts || []).map((a: any) => a.metricType || a.metric))).map((metric) => (
-                <option key={metric} value={metric || ""}>
-                  {METRIC_NAMES[metric] || metric || "未知"}
-                </option>
-              ))}
+              {Array.from(new Set((alerts || []).map((a: any) => a.metricType || a.metric))).map((metric) => {
+                const metricKey = typeof metric === 'string' ? metric.toUpperCase() : metric as keyof typeof METRIC_NAMES;
+                const metricName = METRIC_NAMES[metricKey] || metric || "未知";
+                return (
+                  <option key={metric || "unknown"} value={metric || ""}>
+                    {metricName}
+                  </option>
+                );
+              })}
             </select>
           </label>
           <label className="flex items-center space-x-2">
@@ -186,6 +250,19 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
           alert={selectedAlert}
           onClose={handleCloseModal}
           latestReading={getLatestReadingForAlert(selectedAlert)}
+        />
+      )}
+
+      {currentDangerAlert && (
+        <DangerAlertPopup
+          alert={currentDangerAlert}
+          pigsties={realPigsties}
+          users={users}
+          onClose={handleCloseDangerPopup}
+          onAcknowledge={handleAcknowledge}
+          remainingCount={dangerAlerts.length - 1}
+          allDangerAlerts={dangerAlerts.filter(a => a.id !== currentDangerAlert.id)}
+          onAcknowledgeAll={handleAcknowledgeAll}
         />
       )}
     </div>

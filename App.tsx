@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import React, { useState, useCallback, useEffect } from "react";
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import React, { useState, useCallback, useEffect, useRef } from "react";
 
 import { Header } from "./components/Header.tsx";
 import { Sidebar } from "./components/Sidebar.tsx";
@@ -46,6 +46,9 @@ function App() {
   const [currentPage, setCurrentPage] = useState("dashboard");
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  
+  // 用于记录上一次弹窗的时间戳，实现防抖
+  const lastAlertTime = useRef<Record<string, number>>({});
 
   const [users, setUsers] = useState<User[]>([]);
   const [realPigsties, setRealPigsties] = useState<RealPigsty[]>([]);
@@ -280,6 +283,34 @@ function App() {
         
         // 显示预警弹窗
         setCurrentAlert(alert);
+        
+        // 检查是否为危险数据，添加弹窗报警
+        if (alert.level === 'Danger') {
+          const key = `${alert.pigstyId}_${alert.metric}`;
+          const now = Date.now();
+          const lastTime = lastAlertTime.current[key] || 0;
+          
+          // 防抖：如果距离上次弹窗不足 60 秒，直接返回
+          if (now - lastTime < 60000) {
+            return;
+          }
+          
+          // 更新时间戳
+          lastAlertTime.current[key] = now;
+          
+          // 构建弹窗内容
+          const pigsty = realPigsties.find(p => p.id === alert.pigstyId);
+          const pigstyName = pigsty?.name || '未知猪舍';
+          const location = pigsty?.location || '未知位置';
+          const metricName = alert.metric === 'Temperature' ? '温度' : 
+                            alert.metric === 'Humidity' ? '湿度' : 
+                            alert.metric === 'Ammonia' ? '氨气浓度' : 
+                            alert.metric === 'Light' ? '光照' : alert.metric;
+          const currentTime = new Date().toLocaleTimeString();
+          
+          // 直接使用 window.alert 作为简单的弹窗方案
+          window.alert(`🔴 【危险环境警报】 ${pigstyName} (${location})\n当前 ${metricName} 为 ${alert.value.toFixed(2)}，已严重超过危险阈值！\n发生时间：${currentTime}\n系统动作：已自动下发降温/通风指令。`);
+        }
         
         // 刷新预警列表
         fetchData();
@@ -525,6 +556,7 @@ function App() {
             alerts={realAlerts}
             realReadings={realReadings}
             realPigsties={userFilteredPigsties}
+            users={users}
             onAcknowledgeWarning={handleAcknowledgeWarning}
             pageInfo={{
               totalElements: alertsPage.totalElements,

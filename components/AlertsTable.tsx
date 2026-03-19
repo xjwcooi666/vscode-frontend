@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { Alert, AlertLevel } from "../types";
 import { ALERT_LEVEL_CONFIG, METRIC_CONFIG, METRIC_NAMES, ALERT_LEVEL_NAMES } from "../constants";
 
@@ -18,14 +18,20 @@ export const AlertsTable: React.FC<AlertsTableProps> = ({ alerts, onAlertClick, 
   };
 
   const getUnit = (alert: any): string => {
-    const metricString = alert.metricType;
-    if (metricString && METRIC_CONFIG[metricString]) return METRIC_CONFIG[metricString].unit || "";
+    const metricString = alert.metricType || alert.metric;
+    if (metricString) {
+      const metricKey = typeof metricString === 'string' ? metricString.toUpperCase() : metricString;
+      if (METRIC_CONFIG[metricKey]) return METRIC_CONFIG[metricKey].unit || "";
+    }
     return "";
   };
 
   const getMetricName = (alert: any): string => {
-    const metricString = alert.metricType;
-    if (metricString && METRIC_NAMES[metricString]) return METRIC_NAMES[metricString];
+    const metricString = alert.metricType || alert.metric;
+    if (metricString) {
+      const metricKey = typeof metricString === 'string' ? metricString.toUpperCase() : metricString;
+      if (METRIC_NAMES[metricKey]) return METRIC_NAMES[metricKey];
+    }
     return metricString || "未知指标";
   };
 
@@ -47,8 +53,9 @@ export const AlertsTable: React.FC<AlertsTableProps> = ({ alerts, onAlertClick, 
         </thead>
         <tbody className="bg-slate-900 divide-y divide-slate-800">
           {alerts?.map((alert: any) => {
-            const level = AlertLevel.Warning;
-            const levelConfig = ALERT_LEVEL_CONFIG[level];
+            const level = alert.level || AlertLevel.Danger;
+            const levelKey = typeof level === 'string' ? (level === 'Danger' ? AlertLevel.Danger : AlertLevel.Warning) : level;
+            const levelConfig = ALERT_LEVEL_CONFIG[levelKey as AlertLevel];
             return (
               <tr key={alert.id} className="hover:bg-slate-800/50">
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
@@ -61,7 +68,7 @@ export const AlertsTable: React.FC<AlertsTableProps> = ({ alerts, onAlertClick, 
                   {levelConfig ? (
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${levelConfig.color}`}>
                       {levelConfig.icon}
-                      {ALERT_LEVEL_NAMES[level]}
+                      {ALERT_LEVEL_NAMES[levelKey as AlertLevel]}
                     </span>
                   ) : (
                     <span className="text-slate-400">未知</span>

@@ -28,6 +28,7 @@ interface WarningMessage extends WebSocketMessage {
     message: string;
     metricType: string;
     actualValue: number;
+    level: string;
     timestamp: string;
     acknowledged: boolean;
     acknowledgedAt?: string;
@@ -160,7 +161,7 @@ class WebSocketService {
       pigstyName: '', // 猪舍名称需要从前端状态中获取
       metric: convertMetricType(warningData.metricType) as any,
       value: warningData.actualValue,
-      level: 'Danger' as any, // 根据实际情况设置级别
+      level: warningData.level === 'DANGER' ? 'Danger' : 'Warning' as any, // 根据后端级别设置前端级别
       message: warningData.message
     };
 

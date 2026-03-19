@@ -292,9 +292,20 @@ export const getLatestWarnings = async (
   const response = await api.get('/api/warnings/latest', { params });
   const data = response.data;
 
+  // 处理预警级别，确保前端能正确显示
+  const processAlerts = (alerts: any[]) => {
+    return alerts.map(alert => {
+      return {
+        ...alert,
+        level: alert.level === 'DANGER' ? 'Danger' : 'Warning',
+        metric: alert.metricType ? alert.metricType.charAt(0) + alert.metricType.slice(1).toLowerCase() : alert.metric
+      };
+    });
+  };
+
   if (Array.isArray(data)) {
     return {
-      content: data,
+      content: processAlerts(data),
       totalElements: data.length,
       totalPages: 1,
       number: 0,
@@ -303,7 +314,7 @@ export const getLatestWarnings = async (
   }
 
   return {
-    content: data.content ?? [],
+    content: processAlerts(data.content ?? []),
     totalElements: data.totalElements ?? (data.content?.length ?? 0),
     totalPages: data.totalPages ?? 1,
     number: data.number ?? page,
