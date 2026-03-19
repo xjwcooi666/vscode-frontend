@@ -6,9 +6,10 @@ import { ALERT_LEVEL_CONFIG, METRIC_CONFIG, METRIC_NAMES } from '../constants';
 interface AlertModalProps {
   alert: Alert;
   onClose: () => void;
+  latestReading?: any;
 }
 
-export const AlertModal: React.FC<AlertModalProps> = ({ alert, onClose }) => {
+export const AlertModal: React.FC<AlertModalProps> = ({ alert, onClose, latestReading }) => {
   const levelConfig = ALERT_LEVEL_CONFIG[alert.level];
   const metricConfig = METRIC_CONFIG[alert.metric];
   const metricName = METRIC_NAMES[alert.metric];

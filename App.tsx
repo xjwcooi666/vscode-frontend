@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import React, { useState, useCallback, useEffect } from "react";
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import React, { useState, useCallback, useEffect } from "react";
 
 import { Header } from "./components/Header.tsx";
 import { Sidebar } from "./components/Sidebar.tsx";
@@ -8,11 +8,13 @@ import { PigstyManagement } from "./components/PigstyManagement.tsx";
 import { UserManagement } from "./components/UserManagement.tsx";
 import { DeviceManagement } from "./components/DeviceManagement.tsx";
 import { LoginScreen } from "./components/LoginScreen.tsx";
+import { AlertModal } from "./components/AlertModal.tsx";
 
 import { UserRole, User, Alert } from "./types.ts";
 import { Pigsty as RealPigsty, Device as RealDevice, PageResponse } from "./services/api.ts";
 
 import * as realApi from "./services/api.ts";
+import { websocketService } from "./services/websocketService.ts";
 import { jwtDecode } from "jwt-decode";
 
 type PigstyReading = {
@@ -61,6 +63,7 @@ function App() {
   const [warningsFilterAcknowledged, setWarningsFilterAcknowledged] = useState<boolean>(false);
   const [alertFilterPigstyId, setAlertFilterPigstyId] = useState<string>("all");
   const [alertFilterMetric, setAlertFilterMetric] = useState<string>("all");
+  const [currentAlert, setCurrentAlert] = useState<Alert | null>(null);
 
   const getUsernameFromToken = (): string | null => {
     const token = localStorage.getItem("token");
@@ -261,24 +264,78 @@ function App() {
     };
   }, []);
 
+  // WebSocket 连接和预警处理
+  useEffect(() => {
+    if (isAuthenticated) {
+      // 连接 WebSocket 服务
+      websocketService.connect();
+
+      // 订阅预警消息
+      const unsubscribeWarning = websocketService.onWarning((alert) => {
+        // 查找猪舍名称
+        const pigsty = realPigsties.find(p => p.id === alert.pigstyId);
+        if (pigsty) {
+          alert.pigstyName = pigsty.name;
+        }
+        
+        // 显示预警弹窗
+        setCurrentAlert(alert);
+        
+        // 刷新预警列表
+        fetchData();
+      });
+
+      // 订阅数据更新消息
+      const unsubscribeDataUpdate = websocketService.onDataUpdate((data) => {
+        // 刷新数据
+        fetchData();
+      });
+
+      return () => {
+        // 取消订阅
+        unsubscribeWarning();
+        unsubscribeDataUpdate();
+        // 断开 WebSocket 连接
+        websocketService.disconnect();
+      };
+    }
+  }, [isAuthenticated, realPigsties, fetchData]);
+
   useEffect(() => {
     if (isAuthenticated) {
       fetchData();
       let interval: NodeJS.Timeout | null = null;
-      interval = setInterval(async () => {
-        try {
-          const [alertUpdates, readingUpdates] = await Promise.all([
-            realApi.getLatestWarnings(alertsPage.number ?? 0, alertsPage.size ?? alertPageSize, warningsFilterAcknowledged, alertFilterPigstyId, alertFilterMetric),
-            realApi.getLatestData(),
-          ]);
-          setAlertsPage(alertUpdates);
-          setRealAlerts(alertUpdates.content ?? []);
-          setRealReadings(readingUpdates);
-        } catch (error) {
-          console.error("Failed fetch updates:", error);
-          setLoadError("实时更新失败");
-        }
-      }, 5000);
+      
+      // 检查 WebSocket 连接状态的函数
+      const checkWebSocketStatus = () => {
+        const wsState = websocketService.getConnectionState();
+        return wsState === WebSocket.OPEN;
+      };
+      
+      // 轮询函数
+      const startPolling = () => {
+        interval = setInterval(async () => {
+          // 只有当 WebSocket 连接不可用时才进行轮询
+          if (!checkWebSocketStatus()) {
+            try {
+              const [alertUpdates, readingUpdates] = await Promise.all([
+                realApi.getLatestWarnings(alertsPage.number ?? 0, alertsPage.size ?? alertPageSize, warningsFilterAcknowledged, alertFilterPigstyId, alertFilterMetric),
+                realApi.getLatestData(),
+              ]);
+              setAlertsPage(alertUpdates);
+              setRealAlerts(alertUpdates.content ?? []);
+              setRealReadings(readingUpdates);
+            } catch (error) {
+              console.error("Failed fetch updates:", error);
+              setLoadError("实时更新失败");
+            }
+          }
+        }, 5000);
+      };
+      
+      // 启动轮询
+      startPolling();
+      
       return () => {
         if (interval) clearInterval(interval);
       };
@@ -545,6 +602,14 @@ function App() {
             <main className="flex-1 p-6 overflow-hidden flex"> {renderCurrentPage()} </main>
           </div>
         </div>
+      )}
+      
+      {/* 预警弹窗 */}
+      {currentAlert && (
+        <AlertModal
+          alert={currentAlert}
+          onClose={() => setCurrentAlert(null)}
+        />
       )}
     </div>
   );
