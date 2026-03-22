@@ -186,15 +186,11 @@ export const AlertsView: React.FC<AlertsViewProps> = ({
               onChange={(e) => onFilterMetricChange(e.target.value)}
             >
               <option value="all">全部</option>
-              {Array.from(new Set((alerts || []).map((a: any) => a.metricType || a.metric))).map((metric) => {
-                const metricKey = typeof metric === 'string' ? metric.toUpperCase() : metric as keyof typeof METRIC_NAMES;
-                const metricName = METRIC_NAMES[metricKey] || metric || "未知";
-                return (
-                  <option key={metric || "unknown"} value={metric || ""}>
-                    {metricName}
-                  </option>
-                );
-              })}
+              <option value="TEMPERATURE">温度</option>
+              <option value="HUMIDITY">湿度</option>
+              <option value="AMMONIA">氨气</option>
+              <option value="LIGHT">光照</option>
+              <option value="设备故障">设备故障</option>
             </select>
           </label>
           <label className="flex items-center space-x-2">

@@ -48,6 +48,8 @@ export const DangerAlertPopup: React.FC<DangerAlertPopupProps> = ({
   const unit = metricConfig?.unit || '';
   const alertTime = alert.timestamp ? new Date(alert.timestamp).toLocaleString() : '未知时间';
   const alertValue = alert.value ?? alert.actualValue;
+  
+  const isDeviceError = metricName === '设备故障' || metricKey.includes('DEVICE') || metricKey === '设备故障';
 
   useEffect(() => {
     setIsVisible(true);
@@ -158,6 +160,10 @@ export const DangerAlertPopup: React.FC<DangerAlertPopupProps> = ({
   };
 
   const getActionSuggestion = (): string => {
+    if (isDeviceError) {
+      return '建议立即检查设备连接状态，必要时更换传感器硬件';
+    }
+    
     if (metricKey === 'TEMPERATURE') {
       if (alertValue > (pigsty?.tempThresholdHigh || 0)) {
         return '建议立即启动降温系统，检查通风设备是否正常运行';
@@ -235,10 +241,18 @@ export const DangerAlertPopup: React.FC<DangerAlertPopupProps> = ({
               <span className="text-red-300 font-semibold text-lg">{pigstyName}</span>
               <span className="text-slate-400 text-sm">{location}</span>
             </div>
-            <div className="text-3xl font-bold text-red-400 mb-1">
-              {metricName}: {alertValue?.toFixed(2) ?? '--'} {unit}
-            </div>
-            <div className="text-sm text-red-300">{getThresholdInfo()}</div>
+            {isDeviceError ? (
+              <div className="text-xl font-bold text-red-400 py-2">
+                {alert.message || '硬件传感器发生故障'}
+              </div>
+            ) : (
+              <>
+                <div className="text-3xl font-bold text-red-400 mb-1">
+                  {metricName}: {alertValue?.toFixed(2) ?? '--'} {unit}
+                </div>
+                <div className="text-sm text-red-300">{getThresholdInfo()}</div>
+              </>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4 text-sm">
@@ -252,10 +266,12 @@ export const DangerAlertPopup: React.FC<DangerAlertPopupProps> = ({
             </div>
           </div>
 
-          <div className="bg-slate-800/50 p-3 rounded-lg text-sm">
-            <p className="text-slate-400 font-semibold mb-1">警报信息</p>
-            <p className="text-slate-200">{alert.message}</p>
-          </div>
+          {!isDeviceError && (
+            <div className="bg-slate-800/50 p-3 rounded-lg text-sm">
+              <p className="text-slate-400 font-semibold mb-1">警报信息</p>
+              <p className="text-slate-200">{alert.message}</p>
+            </div>
+          )}
 
           <div className="bg-yellow-600/10 border border-yellow-500/30 rounded-lg p-4">
             <p className="text-yellow-400 font-semibold mb-2 flex items-center">

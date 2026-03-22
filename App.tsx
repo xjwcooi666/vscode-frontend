@@ -481,6 +481,25 @@ function App() {
     }
   };
 
+  const handleResetDevice = async (id: number) => {
+    try {
+      const result = await realApi.resetDevice(id);
+      if (result.success) {
+        setRealDevices((prev) =>
+          prev.map((d) =>
+            d.id === id
+              ? { ...d, operatingStatus: 'online', lastHeartbeat: new Date().toISOString() }
+              : d
+          )
+        );
+      }
+    } catch (error) {
+      console.error("Failed reset device:", error);
+      alert(`设备复位失败: ${error}`);
+      throw error;
+    }
+  };
+
   const handleAcknowledgeWarning = async (id: number) => {
     try {
       await realApi.acknowledgeWarning(id);
@@ -602,6 +621,7 @@ function App() {
             onAddDevice={handleAddDevice}
             onToggleDeviceStatus={handleToggleDeviceStatus}
             onDeleteDevice={handleDeleteDevice}
+            onResetDevice={handleResetDevice}
           />
         );
       default:

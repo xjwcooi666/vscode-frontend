@@ -162,6 +162,8 @@ export interface Device {
   modelNumber?: string;
   serialNumber?: string;
   active: boolean;
+  operatingStatus?: string;
+  lastHeartbeat?: string;
 }
 
 /**
@@ -460,6 +462,11 @@ export const toggleDeviceStatus = async (id: number): Promise<Device> => {
  */
 export const deleteDevice = async (id: number) => {
   const response = await api.delete(`/api/devices/${id}`);
+  return response.data;
+};
+
+export const resetDevice = async (id: number): Promise<{ success: boolean; message: string; device: Device }> => {
+  const response = await api.post(`/api/devices/${id}/reset`);
   return response.data;
 };
 
